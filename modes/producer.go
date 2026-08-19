@@ -6,13 +6,16 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"sync/atomic"
 	"time"
+	"unicode/utf8"
 
 	"github.com/logdyhq/logdy-core/models"
 	"github.com/logdyhq/logdy-core/utils"
 	"github.com/sirupsen/logrus"
 	"github.com/valyala/fastjson"
+	"golang.org/x/text/encoding/charmap"
 )
 
 var FallthroughGlobal = false
@@ -20,6 +23,13 @@ var DisableANSICodeStripping = false
 var messageSequence atomic.Uint64
 
 func ProduceMessageStringTimestamped(ch chan models.Message, line string, mt models.LogType, mo *models.MessageOrigin, ts time.Time) {
+	if !utf8.ValidString(line) {
+		if decoded, err := charmap.Windows1250.NewDecoder().String(line); err == nil {
+			line = decoded
+		} else {
+			line = strings.ToValidUTF8(line, "�")
+		}
+	}
 
 	if !DisableANSICodeStripping {
 		line = utils.StripAnsi(line)

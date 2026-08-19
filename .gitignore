@@ -1,4 +1,5 @@
 # Modified by VFS Platform contributors, 2026.
+.vscode/
 logdy-core
 bin/
 tmp/
