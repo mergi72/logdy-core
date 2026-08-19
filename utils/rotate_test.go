@@ -569,7 +569,7 @@ func TestRotatingWriter_RefreshFileSize(t *testing.T) {
 	}
 
 	// Simulate external modification (truncation)
-	err = rw.currentFile.Truncate(5)
+	err = os.Truncate(logFilePath, 5)
 	if err != nil {
 		t.Fatalf("Failed to truncate file: %v", err)
 	}

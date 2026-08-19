@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"sync/atomic"
 	"time"
 
 	"github.com/logdyhq/logdy-core/models"
@@ -15,6 +16,7 @@ import (
 
 var FallthroughGlobal = false
 var DisableANSICodeStripping = false
+var messageSequence atomic.Uint64
 
 func ProduceMessageStringTimestamped(ch chan models.Message, line string, mt models.LogType, mo *models.MessageOrigin, ts time.Time) {
 
@@ -52,7 +54,7 @@ func ProduceMessageStringTimestamped(ch chan models.Message, line string, mt mod
 	}
 
 	ch <- models.Message{
-		Id:          strconv.FormatInt(time.Now().UnixMicro(), 10),
+		Id:          strconv.FormatInt(time.Now().UnixNano(), 10) + "-" + strconv.FormatUint(messageSequence.Add(1), 10),
 		Mtype:       mt,
 		Content:     line,
 		JsonContent: cs,

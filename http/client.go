@@ -1,6 +1,8 @@
 package http
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"sync"
 	"time"
@@ -32,6 +34,12 @@ type Client struct {
 
 	cursorStatus   CursorStatus
 	cursorPosition string // last delivered message id
+}
+
+func (c *Client) isCursorStopped() bool {
+	c.bufferOpMu.Lock()
+	defer c.bufferOpMu.Unlock()
+	return c.cursorStatus == CURSOR_STOPPED
 }
 
 func (c *Client) handleMessage(m Message, force bool) {
@@ -67,7 +75,13 @@ func (c *Client) close() {
 }
 
 func (c *Client) waitForBufferDrain() {
-	for len(c.buffer) > 0 {
+	for {
+		c.bufferOpMu.Lock()
+		empty := len(c.buffer) == 0
+		c.bufferOpMu.Unlock()
+		if empty {
+			return
+		}
 		time.Sleep(5 * time.Millisecond)
 	}
 }
@@ -85,14 +99,14 @@ func (c *Client) startBufferFlushLoop() {
 			defer close(c.ch)
 			return
 		default:
-
+			c.bufferOpMu.Lock()
 			if len(c.buffer) == 0 {
+				c.bufferOpMu.Unlock()
 				continue
 			}
 
 			utils.Logger.WithField("count", len(c.buffer)).Debug("Client: Flushing buffer")
 			c.cursorPosition = c.buffer[len(c.buffer)-1].Id
-			c.bufferOpMu.Lock()
 
 			c.flushBuffer()
 			c.clearBuffer()
@@ -110,7 +124,7 @@ func NewClient() *Client {
 		ch:             make(chan []Message, BULK_WINDOW_MS*25),
 		cursorStatus:   CURSOR_STOPPED,
 		cursorPosition: "",
-		id:             utils.RandStringRunes(6),
+		id:             newClientID(),
 	}
 
 	go c.startBufferFlushLoop()
@@ -118,9 +132,17 @@ func NewClient() *Client {
 	return c
 }
 
+func newClientID() string {
+	value := make([]byte, 16)
+	if _, err := rand.Read(value); err != nil {
+		panic("could not create secure client id: " + err.Error())
+	}
+	return hex.EncodeToString(value)
+}
+
 type ClientsStruct struct {
 	started            bool
-	mu                 sync.Mutex
+	mu                 sync.RWMutex
 	mainChan           <-chan Message
 	clients            map[string]*Client
 	ring               *ring.RingQueue[Message]
@@ -134,7 +156,7 @@ func NewClients(msgs <-chan Message, maxCount int64) *ClientsStruct {
 	}
 
 	cls := &ClientsStruct{
-		mu:                 sync.Mutex{},
+		mu:                 sync.RWMutex{},
 		mainChan:           msgs,
 		clients:            map[string]*Client{},
 		currentlyConnected: 0,
@@ -151,13 +173,18 @@ func NewClients(msgs <-chan Message, maxCount int64) *ClientsStruct {
 }
 
 func (c *ClientsStruct) GetClient(clientId string) (*Client, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	cl, ok := c.clients[clientId]
 	return cl, ok
 }
 
 func (c *ClientsStruct) Load(clientId string, startCount int, count int, includeStart bool) {
 	c.PauseFollowing(clientId)
-	cl := c.clients[clientId]
+	cl, ok := c.GetClient(clientId)
+	if !ok {
+		return
+	}
 	cl.waitForBufferDrain()
 
 	cl.bufferOpMu.Lock()
@@ -209,6 +236,8 @@ func (c *ClientsStruct) PeekLog(idxs []int) []Message {
 }
 
 func (c *ClientsStruct) Stats() Stats {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	return c.stats
 }
 func (c *ClientsStruct) ClientStats(clientId string) ClientStats {
@@ -218,7 +247,9 @@ func (c *ClientsStruct) ClientStats(clientId string) ClientStats {
 		return stats
 	}
 
+	cl.bufferOpMu.Lock()
 	stats.LastDeliveredId = cl.cursorPosition
+	cl.bufferOpMu.Unlock()
 
 	c.ring.Scan(func(m Message, idx int) bool {
 		if m.Id == cl.cursorPosition {
@@ -236,12 +267,17 @@ func (c *ClientsStruct) ClientStats(clientId string) ClientStats {
 
 func (c *ClientsStruct) ResumeFollowing(clientId string, sinceCursor bool) {
 	//pump back the items until last element seen
+	cl, ok := c.GetClient(clientId)
+	if !ok {
+		return
+	}
 
-	c.clients[clientId].bufferOpMu.Lock()
+	cl.bufferOpMu.Lock()
+	defer cl.bufferOpMu.Unlock()
 	if sinceCursor {
 		seen := false
 		c.ring.Scan(func(msg Message, _ int) bool {
-			if msg.Id == c.clients[clientId].cursorPosition {
+			if msg.Id == cl.cursorPosition {
 				seen = true
 				return false
 			}
@@ -250,31 +286,40 @@ func (c *ClientsStruct) ResumeFollowing(clientId string, sinceCursor bool) {
 				return false
 			}
 
-			c.clients[clientId].handleMessage(msg, true)
+			cl.handleMessage(msg, true)
 			return false
 		})
 
 	}
-	c.clients[clientId].flushBuffer()
-	c.clients[clientId].cursorStatus = CURSOR_FOLLOWING
-	c.clients[clientId].bufferOpMu.Unlock()
+	cl.flushBuffer()
+	cl.cursorStatus = CURSOR_FOLLOWING
 }
 
 func (c *ClientsStruct) PauseFollowing(clientId string) {
-	c.clients[clientId].cursorStatus = CURSOR_STOPPED
-	c.clients[clientId].waitForBufferDrain()
+	cl, ok := c.GetClient(clientId)
+	if !ok {
+		return
+	}
+	cl.bufferOpMu.Lock()
+	cl.cursorStatus = CURSOR_STOPPED
+	cl.bufferOpMu.Unlock()
+	cl.waitForBufferDrain()
 }
 
 // starts a delivery channel to all clients
 func (c *ClientsStruct) Start() {
+	c.mu.Lock()
 	if c.started {
+		c.mu.Unlock()
 		utils.Logger.Debug("Clients delivery loop already started")
 		return
 	}
 
 	c.started = true
+	c.mu.Unlock()
 	for {
 		msg := <-c.mainChan
+		c.mu.Lock()
 		if c.stats.FirstMessageAt.IsZero() {
 			c.stats.FirstMessageAt = time.Now()
 		}
@@ -286,7 +331,13 @@ func (c *ClientsStruct) Start() {
 
 		c.stats.LastMessageAt = time.Now()
 
+		clients := make([]*Client, 0, len(c.clients))
 		for _, ch := range c.clients {
+			clients = append(clients, ch)
+		}
+		c.mu.Unlock()
+
+		for _, ch := range clients {
 			ch.bufferOpMu.Lock()
 			ch.handleMessage(msg, false)
 			ch.bufferOpMu.Unlock()
@@ -296,8 +347,6 @@ func (c *ClientsStruct) Start() {
 
 func (c *ClientsStruct) Join(tailLen int, shouldFollow bool) *Client {
 	cl := NewClient()
-	c.clients[cl.id] = cl
-	c.currentlyConnected++
 
 	// deliver last N messages from a buffer upon connection
 	idx := 0
@@ -309,15 +358,22 @@ func (c *ClientsStruct) Join(tailLen int, shouldFollow bool) *Client {
 	if err != nil {
 		panic(err)
 	}
+	cl.bufferOpMu.Lock()
 	for _, msg := range sl {
 		cl.handleMessage(msg, true)
 	}
 
 	if shouldFollow {
-		c.clients[cl.id].cursorStatus = CURSOR_FOLLOWING
+		cl.cursorStatus = CURSOR_FOLLOWING
 	}
+	cl.bufferOpMu.Unlock()
 
-	return c.clients[cl.id]
+	c.mu.Lock()
+	c.clients[cl.id] = cl
+	c.currentlyConnected++
+	c.mu.Unlock()
+
+	return cl
 }
 
 func (c *ClientsStruct) Close(id string) {

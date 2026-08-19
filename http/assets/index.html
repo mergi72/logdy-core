@@ -29,12 +29,65 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <script type="module" src="./wasm_exec.js" type="text/javascript"></script>
 
-  <script type="module" crossorigin src="./assets/index-jVCiWEg8.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-gStbuODZ.css">
+  <script type="module" crossorigin src="./assets/index-dvtg0n8O.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-N_lk0JDw.css">
+  <style>
+    button[disabled] { opacity: .28 !important; cursor: not-allowed !important; filter: grayscale(1); }
+    .ctrl-btn:not([disabled]) { outline: 2px solid #287dcc; outline-offset: -2px; }
+    #vfs-stream-state { display: inline-block; width: 14px; height: 14px; flex: 0 0 14px;
+      margin: 0 9px 0 3px; padding: 0; border: 2px solid rgba(255,255,255,.8); border-radius: 50%; }
+    #vfs-stream-state.running { background: #168447; }
+    #vfs-stream-state.paused { background: #b85c00; }
+  </style>
 </head>
 
 <body>
   <div id="app"></div>
+  <script>
+    (() => {
+      const updateStreamState = () => {
+        const controls = document.querySelector('.ctrls');
+        if (!controls) return;
+        let state = document.getElementById('vfs-stream-state');
+        if (!state) {
+          state = document.createElement('strong');
+          state.id = 'vfs-stream-state';
+          controls.prepend(state);
+        }
+        const buttons = controls.querySelectorAll('button.ctrl-btn');
+        if (buttons.length >= 3) {
+          if (buttons[0].style.display !== 'none') buttons[0].style.display = 'none';
+          if (buttons[1].textContent !== 'RUN') buttons[1].textContent = 'RUN';
+          if (buttons[1].title !== 'Start online log streaming from the latest entry') {
+            buttons[1].title = 'Start online log streaming from the latest entry';
+          }
+          if (buttons[2].textContent !== 'STOP') buttons[2].textContent = 'STOP';
+          if (buttons[2].title !== 'Pause online log streaming') {
+            buttons[2].title = 'Pause online log streaming';
+          }
+          if (!controls.dataset.vfsAutostart) {
+            controls.dataset.vfsAutostart = 'scheduled';
+            setTimeout(() => {
+              const currentButtons = controls.querySelectorAll('button.ctrl-btn');
+              if (currentButtons.length >= 3 && currentButtons[2].disabled) currentButtons[1].click();
+              controls.dataset.vfsAutostart = 'done';
+              updateStreamState();
+            }, 1500);
+          }
+        }
+        const paused = buttons.length >= 3 && buttons[2].disabled;
+        const className = paused ? 'paused' : 'running';
+        const label = '';
+        if (state.className !== className) state.className = className;
+        if (state.textContent !== label) state.textContent = label;
+        state.title = paused ? 'STOPPED' : 'RUNNING';
+      };
+      new MutationObserver(updateStreamState).observe(document.getElementById('app'), {
+        childList: true, subtree: true, attributes: true, attributeFilter: ['disabled']
+      });
+      updateStreamState();
+    })();
+  </script>
 </body>
 
 </html>
