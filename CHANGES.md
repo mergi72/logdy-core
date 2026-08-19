@@ -2,6 +2,10 @@
 
 This repository is a modified fork of `logdyhq/logdy-core`.
 
+## 0.18.5 (2026-08-19)
+
+- Embed Logdy UI 0.18.4 with compact Origins labels and full-path tooltips.
+
 ## 0.18.4 (2026-08-19)
 
 - Embed Logdy UI 0.18.3 with visible Next and Prev navigation buttons in the log detail drawer.
