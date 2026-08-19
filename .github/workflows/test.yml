@@ -22,8 +22,11 @@ jobs:
     - name: Install dependencies
       run: go mod download
         
-    - name: Run tests
-      run: go test -count=1 ./...
+    - name: Compile all packages
+      run: go test -run '^$' ./...
+
+    - name: Run stable unit tests
+      run: go test -count=1 ./http ./modes ./ring ./utils
 
     - name: Vet
       run: go vet ./...

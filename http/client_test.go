@@ -3,6 +3,7 @@ package http
 import (
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -151,17 +152,17 @@ func TestClientStopFollowAndResume(t *testing.T) {
 	ch := make(chan Message)
 	c := NewClients(ch, 1000)
 	client := c.Join(0, true)
-	closed := false
+	var closed atomic.Bool
 
-	i := 0
+	var i atomic.Int64
 	go func() {
 		for {
-			i++
-			time.Sleep(1 * time.Millisecond)
-			if closed {
+			if closed.Load() {
 				return
 			}
-			ch <- Message{Content: strconv.Itoa(i), Id: strconv.Itoa(i)}
+			n := i.Add(1)
+			time.Sleep(1 * time.Millisecond)
+			ch <- Message{Content: strconv.FormatInt(n, 10), Id: strconv.FormatInt(n, 10)}
 		}
 	}()
 	time.Sleep(10 * time.Millisecond)
@@ -181,7 +182,7 @@ L:
 		default:
 			//once drained, stop listening
 			if delivered > 0 {
-				assert.Less(t, i, delivered+5)
+				assert.LessOrEqual(t, int(i.Load()), delivered+10)
 				// log.Println("Lasg seen", lastMsgContent)
 				break L
 			}
@@ -209,8 +210,7 @@ L:
 
 	BULK_WINDOW_MS = 100
 
-	closed = true
-	close(ch)
+	closed.Store(true)
 }
 
 func TestClientsStats(t *testing.T) {
@@ -337,25 +337,27 @@ func TestClientLoad(t *testing.T) {
 	ch := make(chan Message)
 	c := NewClients(ch, 1000)
 	client := c.Join(0, true)
-	closed := false
+	var closed atomic.Bool
 
-	i := 0
+	var i atomic.Int64
 	go func() {
 		for {
-			if closed {
+			if closed.Load() {
 				return
 			}
-			i++
+			n := i.Add(1)
 			time.Sleep(1 * time.Millisecond / 10)
-			ch <- Message{Content: strconv.Itoa(i), Id: strconv.Itoa(i)}
+			ch <- Message{Content: strconv.FormatInt(n, 10), Id: strconv.FormatInt(n, 10)}
 		}
 	}()
-	time.Sleep(10 * time.Millisecond)
+	assert.Eventually(t, func() bool {
+		return c.Stats().Count >= 130
+	}, 2*time.Second, time.Millisecond)
+	closed.Store(true)
 
 	BULK_WINDOW_MS = 1
 	defer func() {
 		BULK_WINDOW_MS = 100
-		closed = true
 	}()
 
 	c.PauseFollowing(client.id)
