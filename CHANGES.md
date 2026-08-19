@@ -2,6 +2,10 @@
 
 This repository is a modified fork of `logdyhq/logdy-core`.
 
+## 0.18.6 (2026-08-19)
+
+- Embed Logdy UI 0.18.5 with taller hovered filter and facet sections.
+
 ## 0.18.5 (2026-08-19)
 
 - Embed Logdy UI 0.18.4 with compact Origins labels and full-path tooltips.
