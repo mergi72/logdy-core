@@ -1,0 +1,11 @@
+Logdy Core - VFS Platform fork
+
+This product is based on Logdy Core: https://github.com/logdyhq/logdy-core
+The upstream work is licensed under the Apache License, Version 2.0, and the
+original LICENSE file is retained in this distribution.
+
+Modified by VFS Platform contributors, 2026. Modifications include security
+hardening, session authentication, concurrency fixes, VFS integration, log
+parsing support, test stabilization, and an embedded modified Logdy UI.
+See CHANGES.md for details. Generated files under http/assets are built from
+the modified logdy-ui fork and are covered by http/assets/NOTICE.

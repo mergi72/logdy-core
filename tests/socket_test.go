@@ -1,5 +1,6 @@
 //go:build !windows
 
+// Modified by VFS Platform contributors, 2026.
 package tests
 
 import (

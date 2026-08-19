@@ -1,0 +1,6 @@
+These web assets are generated from the modified VFS Platform fork of Logdy UI:
+https://github.com/mergi72/logdy-ui
+
+Modified by VFS Platform contributors, 2026. The generated distribution adds
+session authentication, safe untrusted layouts, prefix-safe paths, and VFS
+runtime controls. See the repository root LICENSE, NOTICE, and CHANGES.md.

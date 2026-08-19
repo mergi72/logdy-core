@@ -15,7 +15,9 @@
 </a>
 </p>
 
-### VFS Platform fork: 0.18.1
+### VFS Platform fork: 0.18.2
+
+This is a modified fork of Logdy Core. See [NOTICE](NOTICE) and [CHANGES.md](CHANGES.md) for provenance and modification details.
 
 Logdy is a lightweight, single-binary log viewer that works just like `grep`, `awk`, `sed`, or `jq`. Simply add it to your PATH—no installation, deployment, or compilation required. It runs entirely locally, ensuring security and privacy. [Read more](https://logdy.dev/docs/what-is-logdy).
 
