@@ -127,7 +127,7 @@ func TestClientBulkWindow(t *testing.T) {
 	messages := <-client1.ch
 
 	assert.Equal(t, 3, len(messages))
-	assert.GreaterOrEqual(t, int64(time.Since(ts).Milliseconds()), BULK_WINDOW_MS)
+	assert.GreaterOrEqual(t, int64(time.Since(ts).Milliseconds()), BULK_WINDOW_MS.Load())
 	assert.Equal(t, "foo1", messages[0].Content)
 	assert.Equal(t, "foo2", messages[1].Content)
 	assert.Equal(t, "foo3", messages[2].Content)
@@ -171,7 +171,7 @@ func TestClientStopFollowAndResume(t *testing.T) {
 	delivered := 0
 
 	lastMsgContent := ""
-	BULK_WINDOW_MS = 1
+	BULK_WINDOW_MS.Store(1)
 
 L:
 	for {
@@ -209,7 +209,7 @@ L:
 
 	assert.Equal(t, i1+1, i2)
 
-	BULK_WINDOW_MS = 100
+	BULK_WINDOW_MS.Store(100)
 
 	closed.Store(true)
 }
@@ -242,9 +242,9 @@ func TestClientStats(t *testing.T) {
 	c := NewClients(ch, 1000)
 	client := c.Join(0, true)
 
-	BULK_WINDOW_MS = 1
+	BULK_WINDOW_MS.Store(1)
 	defer func() {
-		BULK_WINDOW_MS = 100
+		BULK_WINDOW_MS.Store(100)
 	}()
 
 	i := 0
@@ -288,9 +288,9 @@ func TestClientStatsWithLoading(t *testing.T) {
 	c := NewClients(ch, 1000)
 	client := c.Join(0, false)
 
-	BULK_WINDOW_MS = 1
+	BULK_WINDOW_MS.Store(1)
 	defer func() {
-		BULK_WINDOW_MS = 100
+		BULK_WINDOW_MS.Store(100)
 	}()
 
 	i := 0
@@ -356,23 +356,29 @@ func TestClientLoad(t *testing.T) {
 	}, 2*time.Second, time.Millisecond)
 	closed.Store(true)
 
-	BULK_WINDOW_MS = 1
+	BULK_WINDOW_MS.Store(1)
 	defer func() {
-		BULK_WINDOW_MS = 100
+		BULK_WINDOW_MS.Store(100)
 	}()
 
 	c.PauseFollowing(client.id)
 
+	client.bufferOpMu.Lock()
 	assert.Equal(t, len(client.buffer), 0)
+	client.bufferOpMu.Unlock()
 
 	c.Load(client.id, 10, 25, true)
+	client.bufferOpMu.Lock()
 	assert.Equal(t, len(client.buffer), 25)
 	assert.Equal(t, client.buffer[0].Id, "10")
 	assert.Equal(t, client.buffer[24].Id, "34")
+	client.bufferOpMu.Unlock()
 
 	c.Load(client.id, 100, 25, false)
+	client.bufferOpMu.Lock()
 	assert.Equal(t, len(client.buffer), 25)
 	assert.Equal(t, client.buffer[0].Id, "101")
 	assert.Equal(t, client.buffer[24].Id, "125")
+	client.bufferOpMu.Unlock()
 
 }

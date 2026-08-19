@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/logdyhq/logdy-core/models"
@@ -18,8 +19,12 @@ import (
 var Ch chan models.Message
 var Clients *ClientsStruct
 
-var BULK_WINDOW_MS int64 = 100
+var BULK_WINDOW_MS atomic.Int64
 var FLUSH_BUFFER_SIZE = 1000
+
+func init() {
+	BULK_WINDOW_MS.Store(100)
+}
 
 type CursorStatus string
 
@@ -92,7 +97,7 @@ func (c *Client) waitForBufferDrain() {
 // in a very short timespan
 func (c *Client) startBufferFlushLoop() {
 	for {
-		time.Sleep(time.Millisecond * time.Duration(BULK_WINDOW_MS))
+		time.Sleep(time.Millisecond * time.Duration(BULK_WINDOW_MS.Load()))
 		select {
 		case <-c.done:
 			utils.Logger.Debug("Client: received done signal, quitting")
@@ -122,7 +127,7 @@ func NewClient() *Client {
 	c := &Client{
 		bufferOpMu:     sync.Mutex{},
 		done:           make(chan struct{}),
-		ch:             make(chan []Message, BULK_WINDOW_MS*25),
+		ch:             make(chan []Message, BULK_WINDOW_MS.Load()*25),
 		cursorStatus:   CURSOR_STOPPED,
 		cursorPosition: "",
 		id:             newClientID(),
@@ -253,7 +258,7 @@ func (c *ClientsStruct) ClientStats(clientId string) ClientStats {
 	cl.bufferOpMu.Unlock()
 
 	c.ring.Scan(func(m Message, idx int) bool {
-		if m.Id == cl.cursorPosition {
+		if m.Id == stats.LastDeliveredId {
 			stats.LastDeliveredIdIdx = idx
 			return true
 		}

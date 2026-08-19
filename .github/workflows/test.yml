@@ -32,5 +32,5 @@ jobs:
     - name: Vet
       run: go vet ./...
 
-    - name: Race detector (stable concurrency coverage)
-      run: go test -race -count=1 ./http -run 'TestSessionAuth|TestSameHostOrigin|TestConfigSave|TestClientID|TestClientJoinSingle|TestClientJoinMultiple'
+    - name: Race detector
+      run: go test -race -count=1 ./http

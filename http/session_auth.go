@@ -33,10 +33,17 @@ func (a *sessionAuth) authenticated(r *http.Request) bool {
 	if err != nil || cookie.Value == "" {
 		return false
 	}
-	a.mu.RLock()
+	a.mu.Lock()
+	defer a.mu.Unlock()
 	expires, ok := a.sessions[cookie.Value]
-	a.mu.RUnlock()
-	return ok && time.Now().Before(expires)
+	if !ok {
+		return false
+	}
+	if !time.Now().Before(expires) {
+		delete(a.sessions, cookie.Value)
+		return false
+	}
+	return true
 }
 
 func (a *sessionAuth) login(w http.ResponseWriter, r *http.Request) {

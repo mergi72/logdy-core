@@ -16,6 +16,7 @@ func LoadFile(configFilePath string) string {
 		Logger.Error("Error while loading config file")
 		panic(err)
 	}
+	defer f.Close()
 
 	bytes, err := io.ReadAll(f)
 

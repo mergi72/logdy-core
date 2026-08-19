@@ -81,9 +81,9 @@ func HandleHttp(config *Config, clients *ClientsStruct, serveMux hand) {
 	assets, _ := Assets()
 
 	if config.BulkWindowMs > 0 {
-		BULK_WINDOW_MS = config.BulkWindowMs
+		BULK_WINDOW_MS.Store(config.BulkWindowMs)
 	} else {
-		BULK_WINDOW_MS = 100
+		BULK_WINDOW_MS.Store(100)
 	}
 
 	normalizeHttpPathPrefix(config)
@@ -97,7 +97,7 @@ func HandleHttp(config *Config, clients *ClientsStruct, serveMux hand) {
 		utils.Logger.Debug("Using net/http")
 		http.Handle(config.HttpPathPrefix, http.StripPrefix(config.HttpPathPrefix, fs))
 		http.HandleFunc(config.HttpPathPrefix+"api/check-pass", handleCheckPass(auth))
-		http.HandleFunc(config.HttpPathPrefix+"api/status", handleStatus(config))
+		http.HandleFunc(config.HttpPathPrefix+"api/status", handleStatus(config, auth))
 		http.HandleFunc(config.HttpPathPrefix+"api/client/set-status", auth.protect(handleClientStatus(clients)))
 		http.HandleFunc(config.HttpPathPrefix+"api/client/load", auth.protect(handleClientLoad(clients)))
 		http.HandleFunc(config.HttpPathPrefix+"api/client/peek-log", auth.protect(handleClientPeek(clients)))
@@ -109,7 +109,7 @@ func HandleHttp(config *Config, clients *ClientsStruct, serveMux hand) {
 		utils.Logger.Debug("Using serveMux", serveMux)
 		serveMux.Handle(config.HttpPathPrefix, http.StripPrefix(config.HttpPathPrefix, fs))
 		serveMux.HandleFunc(config.HttpPathPrefix+"api/check-pass", handleCheckPass(auth))
-		serveMux.HandleFunc(config.HttpPathPrefix+"api/status", handleStatus(config))
+		serveMux.HandleFunc(config.HttpPathPrefix+"api/status", handleStatus(config, auth))
 		serveMux.HandleFunc(config.HttpPathPrefix+"api/client/set-status", auth.protect(handleClientStatus(clients)))
 		serveMux.HandleFunc(config.HttpPathPrefix+"api/client/load", auth.protect(handleClientLoad(clients)))
 		serveMux.HandleFunc(config.HttpPathPrefix+"api/client/peek-log", auth.protect(handleClientPeek(clients)))

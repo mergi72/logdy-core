@@ -2,6 +2,14 @@
 
 This repository is a modified fork of `logdyhq/logdy-core`.
 
+## 0.18.3 (2026-08-19)
+
+- Hide trusted configuration and operational status details from unauthenticated clients.
+- Remove expired sessions during authentication checks.
+- Expand race-detector coverage to the complete HTTP package.
+- Make the shared bulk-window setting race-safe and synchronize buffer assertions in tests.
+- Close configuration files immediately after reading so Windows does not retain a file lock.
+
 ## 0.18.2 (2026-08-19)
 
 - Added Apache-2.0 modification notices and documented fork provenance.

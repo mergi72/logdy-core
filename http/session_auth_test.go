@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 )
 
 func TestSessionAuthDoesNotAcceptPasswordInURL(t *testing.T) {
@@ -54,5 +55,19 @@ func TestSessionAuthRejectsCrossOriginLogin(t *testing.T) {
 	auth.check(recorder, req)
 	if recorder.Code != http.StatusForbidden {
 		t.Fatalf("status = %d, want %d", recorder.Code, http.StatusForbidden)
+	}
+}
+
+func TestSessionAuthRemovesExpiredSession(t *testing.T) {
+	auth := newSessionAuth("secret", "/")
+	auth.sessions["expired"] = time.Now().Add(-time.Minute)
+	req := httptest.NewRequest(http.MethodGet, "http://127.0.0.1:8801/api/check-pass", nil)
+	req.AddCookie(&http.Cookie{Name: sessionCookieName, Value: "expired"})
+
+	if auth.authenticated(req) {
+		t.Fatal("expired session was accepted")
+	}
+	if _, ok := auth.sessions["expired"]; ok {
+		t.Fatal("expired session was not removed")
 	}
 }

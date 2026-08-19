@@ -33,31 +33,35 @@ func handleCheckPass(auth *sessionAuth) func(w http.ResponseWriter, r *http.Requ
 	}
 }
 
-func handleStatus(config *Config) func(w http.ResponseWriter, r *http.Request) {
+func handleStatus(config *Config, auth *sessionAuth) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		utils.Logger.Debug("/api/status")
 
 		configStr := ""
-		if config.ConfigFilePath != "" {
+		authenticated := auth.authenticated(r)
+		if authenticated && config.ConfigFilePath != "" {
 			utils.Logger.WithFields(logrus.Fields{
 				"file": config.ConfigFilePath,
 			}).Debug("Reading config file")
 			configStr = utils.LoadFile(config.ConfigFilePath)
-		} else if utils.FileExists(LOGDY_CONFIG_ENV_FILE) {
+		} else if authenticated && utils.FileExists(LOGDY_CONFIG_ENV_FILE) {
 			utils.Logger.WithFields(logrus.Fields{
 				"file": LOGDY_CONFIG_ENV_FILE,
 			}).Info("Loading local env file")
 			configStr = utils.LoadFile(LOGDY_CONFIG_ENV_FILE)
 		}
 
-		newVersion, _ := utils.IsNewVersionAvailable()
+		newVersion := models.LogdyVersionUpdateResponse{}
+		if authenticated {
+			newVersion, _ = utils.IsNewVersionAvailable()
+		}
 
 		initMsg, _ := json.Marshal(models.InitMessage{
 			BaseMessage: models.BaseMessage{
 				MessageType: models.MessageTypeInit,
 			},
-			AnalyticsEnabled: !config.AnalyticsDisabled,
+			AnalyticsEnabled: authenticated && !config.AnalyticsDisabled,
 			AuthRequired:     config.UiPass != "",
 			ConfigStr:        configStr,
 			ApiPrefix:        config.HttpPathPrefix,
