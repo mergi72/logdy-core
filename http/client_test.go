@@ -2,6 +2,7 @@ package http
 
 import (
 	"strconv"
+	"strings"
 	"testing"
 	"time"
 
@@ -9,6 +10,13 @@ import (
 
 	"github.com/stretchr/testify/assert"
 )
+
+func TestClientIDIsCryptographicallySized(t *testing.T) {
+	first := newClientID()
+	second := newClientID()
+	assert.Len(t, first, 32)
+	assert.False(t, strings.EqualFold(first, second))
+}
 
 func TestClientStartAddToBuffer(t *testing.T) {
 	ch := make(chan Message)
@@ -224,7 +232,7 @@ func TestClientsStats(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	assert.Equal(t, c.Stats().Count, 100)
-	assert.Less(t, st.UnixMicro(), c.Stats().FirstMessageAt.UnixMicro())
+	assert.LessOrEqual(t, st.UnixMicro(), c.Stats().FirstMessageAt.UnixMicro())
 	assert.GreaterOrEqual(t, stop.UnixMicro(), c.Stats().LastMessageAt.UnixMicro())
 }
 

@@ -26,6 +26,13 @@ func TestUnmarshalJSONTimestamp(t *testing.T) {
 			expectedTime: time.Unix(0, 1688815200000*int64(time.Millisecond)),
 		},
 		{
+			input:        `1688815200000`,
+			expectedTime: time.Unix(0, 1688815200000*int64(time.Millisecond)),
+		},
+		{
+			input: `null`,
+		},
+		{
 			input:          `"invalid"`,
 			expectingError: true,
 		},
@@ -46,10 +53,10 @@ func TestUnmarshalJSONTimestamp(t *testing.T) {
 			if err != nil {
 				t.Errorf("unexpected error for input %s: %v", test.input, err)
 			} else {
-				if test.input == "" && ts.Time.IsZero() {
-					t.Errorf("for empty, expected current time, but got empty time")
+				if (test.input == "" || test.input == "null") && ts.Time.IsZero() {
+					t.Errorf("for empty or null, expected current time, but got empty time")
 				}
-				if test.input != "" && !ts.Time.Equal(test.expectedTime) {
+				if test.input != "" && test.input != "null" && !ts.Time.Equal(test.expectedTime) {
 					t.Errorf("for input %s, expected %v, but got %v", test.input, test.expectedTime, ts.Time)
 				}
 			}

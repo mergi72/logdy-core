@@ -30,7 +30,7 @@ func FollowFiles(ch chan models.Message, files []string) {
 
 		go func(file string) {
 			t, err := tail.TailFile(
-				file, tail.Config{Follow: true, ReOpen: true, Location: &tail.SeekInfo{Offset: 0, Whence: io.SeekEnd}})
+				file, tail.Config{Follow: true, ReOpen: true, Poll: true, Location: &tail.SeekInfo{Offset: 0, Whence: io.SeekEnd}})
 			if err != nil {
 				utils.Logger.WithFields(logrus.Fields{
 					"path":  file,

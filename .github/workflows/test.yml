@@ -2,9 +2,9 @@ name: Go Tests
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main, vfs-platform ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, vfs-platform ]
 
 jobs:
   test:
@@ -15,7 +15,7 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Set up Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: '1.23.2'
         
@@ -23,5 +23,10 @@ jobs:
       run: go mod download
         
     - name: Run tests
-    # exclude tests dir for now as it doesnt work well with GH actions
-      run: go test -v `go list ./... | grep -v tests`
+      run: go test -count=1 ./...
+
+    - name: Vet
+      run: go vet ./...
+
+    - name: Race detector (stable concurrency coverage)
+      run: go test -race -count=1 ./http -run 'TestSessionAuth|TestSameHostOrigin|TestConfigSave|TestClientID|TestClientJoinSingle|TestClientJoinMultiple'

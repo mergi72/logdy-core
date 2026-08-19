@@ -1,6 +1,7 @@
 package http
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -64,18 +65,25 @@ type Timestamp struct {
 }
 
 func (t *Timestamp) UnmarshalJSON(data []byte) error {
-	// Remove the quotes from the JSON string
-	s := string(data)
-	if s == "null" {
-		return nil
-	}
-
-	if s == "" {
+	data = bytes.TrimSpace(data)
+	if len(data) == 0 {
 		t.Time = time.Now()
 		return nil
 	}
 
-	s = s[1 : len(s)-1]
+	if bytes.Equal(data, []byte("null")) {
+		t.Time = time.Now()
+		return nil
+	}
+
+	var s string
+	if data[0] == '"' {
+		if err := json.Unmarshal(data, &s); err != nil {
+			return fmt.Errorf("invalid timestamp: %w", err)
+		}
+	} else {
+		s = string(data)
+	}
 
 	// Try to parse as RFC 3339
 	if parsedTime, err := time.Parse(time.RFC3339, s); err == nil {

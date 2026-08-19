@@ -15,7 +15,7 @@
 </a>
 </p>
 
-### Latest version: 0.17.0 (1 June 2025) - [Read announcement](https://logdy.dev/blog/post/logdy-new-version-announcement-v017)
+### VFS Platform fork: 0.18.0
 
 Logdy is a lightweight, single-binary log viewer that works just like `grep`, `awk`, `sed`, or `jq`. Simply add it to your PATH—no installation, deployment, or compilation required. It runs entirely locally, ensuring security and privacy. [Read more](https://logdy.dev/docs/what-is-logdy).
 

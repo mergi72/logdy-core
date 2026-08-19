@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strconv"
 	"sync"
@@ -16,26 +17,18 @@ import (
 )
 
 const LOGDY_CONFIG_ENV_FILE = "logdy.config.json"
+const MAX_CONFIG_LAYOUT_BYTES = 1 << 20
 
-func handleCheckPass(uiPass string) func(w http.ResponseWriter, r *http.Request) {
+func handleCheckPass(auth *sessionAuth) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		utils.Logger.Debug("/api/check-pass")
-		pass := r.URL.Query().Get("password")
-		if uiPass == "" {
-			w.WriteHeader(200)
-			return
-		}
-
-		if pass == "" || uiPass != pass {
+		if auth.required() && r.Method == http.MethodPost {
 			utils.Logger.WithFields(logrus.Fields{
 				"ip": r.RemoteAddr,
 				"ua": r.Header.Get("user-agent"),
-			}).Info("Client denied")
-			w.WriteHeader(http.StatusForbidden)
-			return
+			}).Debug("Client login attempt")
 		}
-
-		w.WriteHeader(200)
+		auth.check(w, r)
 	}
 }
 
@@ -75,27 +68,22 @@ func handleStatus(config *Config) func(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func handleWs(uiPass string, clients *ClientsStruct) func(w http.ResponseWriter, r *http.Request) {
+func handleWs(auth *sessionAuth, clients *ClientsStruct) func(w http.ResponseWriter, r *http.Request) {
 
 	wsUpgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
 		WriteBufferSize: 1024,
-		CheckOrigin: func(r *http.Request) bool {
-			return true
-		},
+		CheckOrigin:     sameHostOrigin,
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		if uiPass != "" {
-			pass := r.URL.Query().Get("password")
-			if pass == "" || uiPass != pass {
-				utils.Logger.WithFields(logrus.Fields{
-					"ip": r.RemoteAddr,
-					"ua": r.Header.Get("user-agent"),
-				}).Info("Client denied")
-				w.WriteHeader(http.StatusForbidden)
-				return
-			}
+		if !auth.authenticated(r) {
+			utils.Logger.WithFields(logrus.Fields{
+				"ip": r.RemoteAddr,
+				"ua": r.Header.Get("user-agent"),
+			}).Info("Client denied")
+			w.WriteHeader(http.StatusForbidden)
+			return
 		}
 
 		// Upgrade the HTTP connection to a WebSocket connection.
@@ -133,7 +121,6 @@ func handleWs(uiPass string, clients *ClientsStruct) func(w http.ResponseWriter,
 			for {
 				time.Sleep(1 * time.Second)
 				_, _, err := conn.ReadMessage()
-				utils.Logger.Error(err)
 				if err != nil {
 					utils.Logger.Debug(err)
 					utils.Logger.WithField("client_id", clientId).Info("Closed client")
@@ -148,25 +135,25 @@ func handleWs(uiPass string, clients *ClientsStruct) func(w http.ResponseWriter,
 		go func(clientId string) {
 			for {
 				time.Sleep(1 * time.Second)
-				if ch.cursorStatus == CURSOR_STOPPED {
-					bts, err = json.Marshal(models.ClientMsgStatus{
+				if ch.isCursorStopped() {
+					statusBytes, marshalErr := json.Marshal(models.ClientMsgStatus{
 						BaseMessage: models.BaseMessage{
 							MessageType: models.MessageTypeClientMsgStatus,
 						},
 						Client: clients.ClientStats(ch.id),
 						Stats:  clients.Stats(),
 					})
-					if err != nil {
-						fmt.Println("Error while serializing message", err)
+					if marshalErr != nil {
+						fmt.Println("Error while serializing message", marshalErr)
 						continue
 					}
 
 					mtx.Lock()
-					err = conn.WriteMessage(1, bts)
+					writeErr := conn.WriteMessage(1, statusBytes)
 					mtx.Unlock()
 
-					if err != nil {
-						utils.Logger.Error("Err", err)
+					if writeErr != nil {
+						utils.Logger.Error("Err", writeErr)
 						clients.Close(clientId)
 						utils.Logger.WithField("client_id", clientId).Info("Closed client")
 						break
@@ -198,14 +185,14 @@ func handleWs(uiPass string, clients *ClientsStruct) func(w http.ResponseWriter,
 				}
 			}
 
-			bts, err := json.Marshal(bulk)
+			bulkBytes, err := json.Marshal(bulk)
 			if err != nil {
 				fmt.Println("Error while serializing message", err)
 				continue
 			}
 
 			mtx.Lock()
-			err = conn.WriteMessage(1, bts)
+			err = conn.WriteMessage(1, bulkBytes)
 
 			if err != nil {
 				utils.Logger.Error("Err", err)
@@ -214,7 +201,7 @@ func handleWs(uiPass string, clients *ClientsStruct) func(w http.ResponseWriter,
 				break
 			}
 
-			bts, err = json.Marshal(models.ClientMsgStatus{
+			statusBytes, err := json.Marshal(models.ClientMsgStatus{
 				BaseMessage: models.BaseMessage{
 					MessageType: models.MessageTypeClientMsgStatus,
 				},
@@ -227,7 +214,7 @@ func handleWs(uiPass string, clients *ClientsStruct) func(w http.ResponseWriter,
 				continue
 			}
 
-			err = conn.WriteMessage(1, bts)
+			err = conn.WriteMessage(1, statusBytes)
 			mtx.Unlock()
 
 			if err != nil {
@@ -241,15 +228,44 @@ func handleWs(uiPass string, clients *ClientsStruct) func(w http.ResponseWriter,
 	}
 }
 
-func handleClientSettingsSave() func(w http.ResponseWriter, r *http.Request) {
+func sameHostOrigin(r *http.Request) bool {
+	origin := r.Header.Get("Origin")
+	if origin == "" {
+		return true
+	}
+
+	parsed, err := url.Parse(origin)
+	if err != nil || parsed.Host == "" {
+		return false
+	}
+
+	return parsed.Host == r.Host
+}
+
+func handleClientSettingsSave(auth ...*sessionAuth) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if !sameHostOrigin(r) {
+			http.Error(w, "origin not allowed", http.StatusForbidden)
+			return
+		}
+		if len(auth) > 0 && !auth[0].authenticated(r) {
+			http.Error(w, "authentication required", http.StatusForbidden)
+			return
+		}
+
 		type Req struct {
 			Layout string `json:"layout"`
 		}
 
 		var p Req
-
-		err := json.NewDecoder(r.Body).Decode(&p)
+		r.Body = http.MaxBytesReader(w, r.Body, MAX_CONFIG_LAYOUT_BYTES)
+		decoder := json.NewDecoder(r.Body)
+		decoder.DisallowUnknownFields()
+		err := decoder.Decode(&p)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
