@@ -30,6 +30,25 @@ func TestProduceMessageIDsAreUniqueWithinSameTimestamp(t *testing.T) {
 	}
 }
 
+func TestProduceFileMessageIDIsStableForSamePhysicalLine(t *testing.T) {
+	ch := make(chan models.Message, 3)
+	origin := &models.MessageOrigin{File: `C:\logs\bridge.log`}
+
+	ProduceFileMessageStringTimestamped(ch, "same line", models.MessageTypeStdout, origin, time.Unix(1, 0), 42)
+	ProduceFileMessageStringTimestamped(ch, "same line", models.MessageTypeStdout, origin, time.Unix(2, 0), 42)
+	ProduceFileMessageStringTimestamped(ch, "changed line", models.MessageTypeStdout, origin, time.Unix(2, 0), 42)
+
+	first := <-ch
+	second := <-ch
+	changed := <-ch
+	if first.Id != second.Id {
+		t.Fatalf("same physical line IDs differ: %q != %q", first.Id, second.Id)
+	}
+	if first.Id == changed.Id {
+		t.Fatalf("changed physical line reused ID: %q", first.Id)
+	}
+}
+
 func TestProduceMessageDecodesWindows1250(t *testing.T) {
 	ch := make(chan models.Message, 1)
 	line := string([]byte{0x4e, 0x65, 0x6d, 0x6f, 0x68, 0x6c, 0x6f, 0x20, 0x62, 0xfd, 0x74, 0x20, 0x76, 0x79, 0x74, 0x76, 0x6f, 0xf8, 0x65, 0x6e, 0x6f, 0x20, 0x70, 0xf8, 0x69, 0x70, 0x6f, 0x6a, 0x65, 0x6e, 0xed})

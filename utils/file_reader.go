@@ -10,8 +10,9 @@ import (
 )
 
 type Line struct {
-	seq  int
-	Line []byte
+	seq       int
+	Line      []byte
+	EndOffset int64
 }
 
 func LineCounterWithChannel(r io.Reader, fn func(line Line, cancel func())) error {
@@ -20,6 +21,7 @@ func LineCounterWithChannel(r io.Reader, fn func(line Line, cancel func())) erro
 	buf := make([]byte, bufferSize)
 	var previousLine = []byte{}
 	seq := 0
+	var endOffset int64
 
 	for {
 
@@ -48,7 +50,8 @@ func LineCounterWithChannel(r io.Reader, fn func(line Line, cancel func())) erro
 			}
 
 			if err == io.EOF || (i == 0 || i < bufferSize) {
-				fn(Line{seq: seq, Line: previousLine}, cancel)
+				endOffset += int64(len(previousLine))
+				fn(Line{seq: seq, Line: previousLine, EndOffset: endOffset}, cancel)
 				return nil
 			}
 		}
@@ -59,11 +62,13 @@ func LineCounterWithChannel(r io.Reader, fn func(line Line, cancel func())) erro
 
 		for _, line := range lines {
 			seq++
-			fn(Line{seq: seq, Line: line}, cancel)
+			endOffset += int64(len(line) + 1)
+			fn(Line{seq: seq, Line: line, EndOffset: endOffset}, cancel)
 		}
 
 		if err == io.EOF {
-			fn(Line{seq: seq, Line: previousLine}, cancel)
+			endOffset += int64(len(previousLine))
+			fn(Line{seq: seq, Line: previousLine, EndOffset: endOffset}, cancel)
 			return nil
 		}
 	}

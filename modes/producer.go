@@ -2,6 +2,7 @@
 package modes
 
 import (
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -23,6 +24,16 @@ var DisableANSICodeStripping = false
 var messageSequence atomic.Uint64
 
 func ProduceMessageStringTimestamped(ch chan models.Message, line string, mt models.LogType, mo *models.MessageOrigin, ts time.Time) {
+	produceMessageStringTimestamped(ch, line, mt, mo, ts, "")
+}
+
+func ProduceFileMessageStringTimestamped(ch chan models.Message, line string, mt models.LogType, mo *models.MessageOrigin, ts time.Time, endOffset int64) {
+	identity := fmt.Sprintf("%s\x00%d\x00%s", strings.ToLower(mo.File), endOffset, line)
+	stableID := fmt.Sprintf("file-%x", sha256.Sum256([]byte(identity)))
+	produceMessageStringTimestamped(ch, line, mt, mo, ts, stableID)
+}
+
+func produceMessageStringTimestamped(ch chan models.Message, line string, mt models.LogType, mo *models.MessageOrigin, ts time.Time, messageID string) {
 	if !utf8.ValidString(line) {
 		if decoded, err := charmap.Windows1250.NewDecoder().String(line); err == nil {
 			line = decoded
@@ -64,8 +75,12 @@ func ProduceMessageStringTimestamped(ch chan models.Message, line string, mt mod
 		}
 	}
 
+	if messageID == "" {
+		messageID = strconv.FormatInt(time.Now().UnixNano(), 10) + "-" + strconv.FormatUint(messageSequence.Add(1), 10)
+	}
+
 	ch <- models.Message{
-		Id:          strconv.FormatInt(time.Now().UnixNano(), 10) + "-" + strconv.FormatUint(messageSequence.Add(1), 10),
+		Id:          messageID,
 		Mtype:       mt,
 		Content:     line,
 		JsonContent: cs,

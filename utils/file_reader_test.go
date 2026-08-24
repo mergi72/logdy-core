@@ -44,3 +44,12 @@ func TestLineCounterWithChannel(t *testing.T) {
 	}
 
 }
+
+func TestLineCounterReportsStableEndOffsets(t *testing.T) {
+	var offsets []int64
+	LineCounterWithChannel(bytes.NewBufferString("one\ntwo\nlast"), func(line Line, cancel func()) {
+		offsets = append(offsets, line.EndOffset)
+	})
+
+	assert.Equal(t, []int64{4, 8, 12}, offsets)
+}

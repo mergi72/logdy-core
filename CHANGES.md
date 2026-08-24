@@ -2,6 +2,11 @@
 
 This repository is a modified fork of `logdyhq/logdy-core`.
 
+## 0.18.9 (2026-08-24)
+
+- Assign stable IDs to file-backed log records using their source, byte position, and content.
+- Prevent replayed records from being duplicated in the persistent Web UI after a debugger restart.
+
 ## 0.18.8 (2026-08-24)
 
 - Add a configurable initial Web UI message window while retaining the larger in-memory ring for paged retrieval.

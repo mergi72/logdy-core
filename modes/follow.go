@@ -4,6 +4,7 @@ package modes
 import (
 	"io"
 	"os"
+	"time"
 
 	"github.com/logdyhq/logdy-core/utils"
 
@@ -40,7 +41,7 @@ func FollowFiles(ch chan models.Message, files []string) {
 			}
 
 			for line := range t.Lines {
-				ProduceMessageString(ch, line.Text, models.MessageTypeStdout, &models.MessageOrigin{File: file})
+				ProduceFileMessageStringTimestamped(ch, line.Text, models.MessageTypeStdout, &models.MessageOrigin{File: file}, line.Time, line.SeekInfo.Offset)
 			}
 
 		}(file)
@@ -67,7 +68,7 @@ func ReadFiles(ch chan models.Message, files []string) {
 		}).Info("Reading file")
 
 		utils.LineCounterWithChannel(r, func(line utils.Line, cancel func()) {
-			ProduceMessageString(ch, string(line.Line), models.MessageTypeStdout, &models.MessageOrigin{File: file})
+			ProduceFileMessageStringTimestamped(ch, string(line.Line), models.MessageTypeStdout, &models.MessageOrigin{File: file}, time.Now(), line.EndOffset)
 		})
 		bar.Finish()
 
