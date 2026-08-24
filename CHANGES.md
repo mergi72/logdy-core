@@ -2,6 +2,11 @@
 
 This repository is a modified fork of `logdyhq/logdy-core`.
 
+## 0.18.8 (2026-08-24)
+
+- Add a configurable initial Web UI message window while retaining the larger in-memory ring for paged retrieval.
+- Default new Web UI connections to the latest 1,000 buffered entries instead of transferring the entire ring.
+
 ## 0.18.7 (2026-08-24)
 
 - Initialize Web UI clients from the configured in-memory ring capacity instead of the previous hard-coded 100-message limit.

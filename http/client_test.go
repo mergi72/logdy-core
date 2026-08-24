@@ -382,3 +382,9 @@ func TestClientLoad(t *testing.T) {
 	client.bufferOpMu.Unlock()
 
 }
+
+func TestInitialTailLength(t *testing.T) {
+	assert.Equal(t, 1000, initialTailLength(1000, 10000))
+	assert.Equal(t, 10000, initialTailLength(0, 10000))
+	assert.Equal(t, 10000, initialTailLength(20000, 10000))
+}

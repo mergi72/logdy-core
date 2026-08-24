@@ -20,6 +20,13 @@ import (
 const LOGDY_CONFIG_ENV_FILE = "logdy.config.json"
 const MAX_CONFIG_LAYOUT_BYTES = 1 << 20
 
+func initialTailLength(configured, maxCount int64) int {
+	if configured <= 0 || configured > maxCount {
+		return int(maxCount)
+	}
+	return int(configured)
+}
+
 func handleCheckPass(auth *sessionAuth) func(w http.ResponseWriter, r *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		utils.Logger.Debug("/api/check-pass")
@@ -73,7 +80,7 @@ func handleStatus(config *Config, auth *sessionAuth) func(w http.ResponseWriter,
 	}
 }
 
-func handleWs(auth *sessionAuth, clients *ClientsStruct) func(w http.ResponseWriter, r *http.Request) {
+func handleWs(auth *sessionAuth, clients *ClientsStruct, initialMessageCount int64) func(w http.ResponseWriter, r *http.Request) {
 
 	wsUpgrader := websocket.Upgrader{
 		ReadBufferSize:  1024,
@@ -100,7 +107,7 @@ func handleWs(auth *sessionAuth, clients *ClientsStruct) func(w http.ResponseWri
 
 		utils.Logger.Info("New Web UI client connected")
 
-		ch := clients.Join(int(clients.Stats().MaxCount), r.URL.Query().Get("should_follow") == "true")
+		ch := clients.Join(initialTailLength(initialMessageCount, clients.Stats().MaxCount), r.URL.Query().Get("should_follow") == "true")
 		clientId := ch.id
 
 		bts, err := json.Marshal(models.ClientJoined{

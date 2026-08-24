@@ -31,8 +31,9 @@ type Config struct {
 	// A server port on which the UI will be served
 	ServerPort string
 	// A server IP on which the UI will be served, leave empty to bind to existing server
-	ServerIp        string
-	MaxMessageCount int64
+	ServerIp            string
+	MaxMessageCount     int64
+	InitialMessageCount int64
 
 	// Log level
 	LogLevel LOG_LEVEL
@@ -86,17 +87,18 @@ func (l *LogdyInstance) LogString(message string) error {
 
 func translateToConfig(c *Config) http.Config {
 	return http.Config{
-		AnalyticsDisabled: c.AnalyticsEnabled,
-		UiPass:            c.UiPass,
-		ConfigFilePath:    c.ConfigFilePath,
-		BulkWindowMs:      c.BulkWindowMs,
-		HttpPathPrefix:    c.HttpPathPrefix,
-		ServerPort:        c.ServerPort,
-		ServerIp:          c.ServerIp,
-		MaxMessageCount:   c.MaxMessageCount,
-		LogLevel:          c.LogLevel,
-		LogInterceptor:    c.LogInterceptor,
-		ApiKey:            c.ApiKey,
+		AnalyticsDisabled:   c.AnalyticsEnabled,
+		UiPass:              c.UiPass,
+		ConfigFilePath:      c.ConfigFilePath,
+		BulkWindowMs:        c.BulkWindowMs,
+		HttpPathPrefix:      c.HttpPathPrefix,
+		ServerPort:          c.ServerPort,
+		ServerIp:            c.ServerIp,
+		MaxMessageCount:     c.MaxMessageCount,
+		InitialMessageCount: c.InitialMessageCount,
+		LogLevel:            c.LogLevel,
+		LogInterceptor:      c.LogInterceptor,
+		ApiKey:              c.ApiKey,
 	}
 }
 

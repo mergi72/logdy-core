@@ -15,7 +15,7 @@
 </a>
 </p>
 
-### VFS Platform fork: 0.18.7
+### VFS Platform fork: 0.18.8
 
 This is a modified fork of Logdy Core. See [NOTICE](NOTICE) and [CHANGES.md](CHANGES.md) for provenance and modification details.
 
@@ -147,6 +147,7 @@ Flags:
       --disable-ansi-code-stripping   Use this flag to disable Logdy from stripping ANSI sequence codes
   -t, --fallthrough                   Will fallthrough all of the stdin received to the terminal as is (will display incoming messages)
   -h, --help                          help for logdy
+      --initial-message-count int     Number of newest buffered messages sent to a Web UI client when it connects. Older messages remain available through paged loading. (default 1000)
       --max-message-count int         Max number of messages that will be stored in a buffer for further retrieval. On buffer overflow, oldest messages will be removed. (default 100000)
   -n, --no-analytics                  Opt-out from sending anonymous analytical data that helps improve Logdy
   -u, --no-updates                    Opt-out from checking updates on program startup

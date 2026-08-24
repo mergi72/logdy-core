@@ -102,7 +102,7 @@ func HandleHttp(config *Config, clients *ClientsStruct, serveMux hand) {
 		http.HandleFunc(config.HttpPathPrefix+"api/client/load", auth.protect(handleClientLoad(clients)))
 		http.HandleFunc(config.HttpPathPrefix+"api/client/peek-log", auth.protect(handleClientPeek(clients)))
 		http.HandleFunc(config.HttpPathPrefix+"api/config/save", handleClientSettingsSave(auth))
-		http.HandleFunc(config.HttpPathPrefix+"ws", handleWs(auth, clients))
+		http.HandleFunc(config.HttpPathPrefix+"ws", handleWs(auth, clients, config.InitialMessageCount))
 
 		http.HandleFunc(config.HttpPathPrefix+"api/log", apiKeyMiddleware(config.ApiKey, handleLog(Ch)))
 	} else {
@@ -114,7 +114,7 @@ func HandleHttp(config *Config, clients *ClientsStruct, serveMux hand) {
 		serveMux.HandleFunc(config.HttpPathPrefix+"api/client/load", auth.protect(handleClientLoad(clients)))
 		serveMux.HandleFunc(config.HttpPathPrefix+"api/client/peek-log", auth.protect(handleClientPeek(clients)))
 		serveMux.HandleFunc(config.HttpPathPrefix+"api/config/save", handleClientSettingsSave(auth))
-		serveMux.HandleFunc(config.HttpPathPrefix+"ws", handleWs(auth, clients))
+		serveMux.HandleFunc(config.HttpPathPrefix+"ws", handleWs(auth, clients, config.InitialMessageCount))
 
 		serveMux.HandleFunc(config.HttpPathPrefix+"api/log", apiKeyMiddleware(config.ApiKey, handleLog(Ch)))
 	}
@@ -157,6 +157,7 @@ type Config struct {
 	AppendToFileRotateMaxSize string
 	AppendToFileRaw           bool
 	MaxMessageCount           int64
+	InitialMessageCount       int64
 
 	LogLevel       utils.LOG_LEVEL
 	LogInterceptor utils.LogInterceptor

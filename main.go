@@ -210,6 +210,7 @@ func init() {
 
 	rootCmd.PersistentFlags().Int64P("bulk-window", "", 100, "A time window during which log messages are gathered and send in a bulk to a client. Decreasing this window will improve the 'real-time' feeling of messages presented on the screen but could decrease UI performance")
 	rootCmd.PersistentFlags().Int64P("max-message-count", "", 100_000, "Max number of messages that will be stored in a buffer for further retrieval. On buffer overflow, oldest messages will be removed.")
+	rootCmd.PersistentFlags().Int64P("initial-message-count", "", 1_000, "Number of newest buffered messages sent to a Web UI client when it connects. Older messages remain available through paged loading.")
 	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "Verbose logs")
 	rootCmd.PersistentFlags().BoolP("disable-ansi-code-stripping", "", false, "Use this flag to disable Logdy from stripping ANSI sequence codes")
 	rootCmd.PersistentFlags().BoolP("append-to-file-raw", "", false, "When 'append-to-file' is set, raw lines without metadata will be saved to a file")

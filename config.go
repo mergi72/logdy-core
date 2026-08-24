@@ -110,6 +110,7 @@ func parseConfig(cmd *cobra.Command) {
 
 	config.BulkWindowMs = getIntCfgVal("bulk-window", cmd)
 	config.MaxMessageCount = getIntCfgVal("max-message-count", cmd)
+	config.InitialMessageCount = getIntCfgVal("initial-message-count", cmd)
 
 	config.AppendToFileRaw = getBoolCfgVal("append-to-file-raw", cmd)
 	config.AnalyticsDisabled = getBoolCfgVal("no-analytics", cmd)
