@@ -2,6 +2,11 @@
 
 This repository is a modified fork of `logdyhq/logdy-core`.
 
+## 0.18.7 (2026-08-24)
+
+- Initialize Web UI clients from the configured in-memory ring capacity instead of the previous hard-coded 100-message limit.
+- Preserve live following while making the complete configured cache available to the debugger UI.
+
 ## 0.18.6 (2026-08-19)
 
 - Embed Logdy UI 0.18.5 with taller hovered filter and facet sections.

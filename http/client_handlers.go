@@ -100,7 +100,7 @@ func handleWs(auth *sessionAuth, clients *ClientsStruct) func(w http.ResponseWri
 
 		utils.Logger.Info("New Web UI client connected")
 
-		ch := clients.Join(100, r.URL.Query().Get("should_follow") == "true")
+		ch := clients.Join(int(clients.Stats().MaxCount), r.URL.Query().Get("should_follow") == "true")
 		clientId := ch.id
 
 		bts, err := json.Marshal(models.ClientJoined{

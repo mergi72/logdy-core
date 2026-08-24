@@ -15,7 +15,7 @@
 </a>
 </p>
 
-### VFS Platform fork: 0.18.6
+### VFS Platform fork: 0.18.7
 
 This is a modified fork of Logdy Core. See [NOTICE](NOTICE) and [CHANGES.md](CHANGES.md) for provenance and modification details.
 
