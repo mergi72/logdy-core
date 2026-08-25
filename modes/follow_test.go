@@ -13,6 +13,33 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
+func TestReadFilesLatestMergesSourcesByRecordTimestamp(t *testing.T) {
+	dir := t.TempDir()
+	newer := filepath.Join(dir, "newer.log")
+	older := filepath.Join(dir, "older.log")
+	assert.NoError(t, os.WriteFile(newer, []byte("2026-08-25 13:00:03,000 INFO newer: third\n2026-08-25 13:00:04,000 INFO newer: fourth\n"), 0o600))
+	assert.NoError(t, os.WriteFile(older, []byte("2026-08-25 13:00:01,000 INFO older: first\n2026-08-25 13:00:02,000 INFO older: second\n"), 0o600))
+
+	ch := make(chan models.Message, 3)
+	ReadFilesLatest(ch, []string{newer, older}, 3)
+
+	var got []string
+	for range 3 {
+		got = append(got, (<-ch).Content)
+	}
+	assert.Equal(t, []string{
+		"2026-08-25 13:00:02,000 INFO older: second",
+		"2026-08-25 13:00:03,000 INFO newer: third",
+		"2026-08-25 13:00:04,000 INFO newer: fourth",
+	}, got)
+}
+
+func TestLogTimestampReadsTunnelJSON(t *testing.T) {
+	fallback := time.Unix(0, 0)
+	got := logTimestamp(`{"time":"2026-08-25T13:58:24.0035901+02:00","level":"INFO"}`, fallback)
+	assert.Equal(t, "2026-08-25T13:58:24.0035901+02:00", got.Format(time.RFC3339Nano))
+}
+
 func TestFollowFilesReceivesAppendedLine(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "bridge.stdout.log")
 	if err := os.WriteFile(path, []byte("existing\n"), 0o600); err != nil {

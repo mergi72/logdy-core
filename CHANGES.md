@@ -2,6 +2,12 @@
 
 This repository is a modified fork of `logdyhq/logdy-core`.
 
+## 0.18.10 (2026-08-25)
+
+- Merge the initial records from all followed files by their embedded record timestamp.
+- Retain only the configured newest records during the initial full read, independently of file argument order.
+- Preserve live following and the existing streaming behavior of the public file reader.
+
 ## 0.18.9 (2026-08-24)
 
 - Assign stable IDs to file-backed log records using their source, byte position, and content.

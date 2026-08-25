@@ -76,7 +76,7 @@ var followCmd = &cobra.Command{
 		fullRead, _ := cmd.Flags().GetBool("full-read")
 
 		if fullRead {
-			modes.ReadFiles(http.Ch, args)
+			modes.ReadFilesLatest(http.Ch, args, config.MaxMessageCount)
 		}
 
 		modes.FollowFiles(http.Ch, args)
