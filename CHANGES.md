@@ -2,6 +2,11 @@
 
 This repository is a modified fork of `logdyhq/logdy-core`.
 
+## 0.18.11 (2026-08-30)
+
+- Add JSON-configured INFO+ and ALL display modes to the VFS Platform Web UI.
+- Apply display modes through Logdy's native Level facet without replacing the local customized interface.
+
 ## 0.18.10 (2026-08-25)
 
 - Merge the initial records from all followed files by their embedded record timestamp.

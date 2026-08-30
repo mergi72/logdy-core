@@ -38,6 +38,8 @@
       margin: 0 9px 0 3px; padding: 0; border: 2px solid rgba(255,255,255,.8); border-radius: 50%; }
     #vfs-stream-state.running { background: #168447; }
     #vfs-stream-state.paused { background: #b85c00; }
+    #vfs-display-mode { margin-right: 7px; min-width: 112px; height: 36px; padding: 0 9px;
+      border: 1px solid rgba(255,255,255,.35); border-radius: 6px; background: inherit; color: inherit; }
   </style>
 </head>
 
@@ -45,7 +47,109 @@
   <div id="app"></div>
 <script>
     (() => {
+      let displayModesLoaded = false;
+      let displayModesLoading = false;
+      let activeDisplayMode = null;
+      let displayModeSyncTimer = null;
+
+      const findFacet = (name) => Array.from(document.querySelectorAll('.facet')).find(facet => {
+        const title = facet.querySelector('.facet-title');
+        return title && title.textContent.trim().replace(/^[▼►]\s*/, '').startsWith(`${name} (`);
+      });
+
+      const syncDisplayModeFacet = () => {
+        if (!activeDisplayMode || !activeDisplayMode.facet) return;
+        const facet = findFacet(activeDisplayMode.facet);
+        if (!facet) return;
+        const wanted = new Set(Array.isArray(activeDisplayMode.values) ? activeDisplayMode.values : []);
+        facet.querySelectorAll('.facet-item').forEach(item => {
+          const label = item.querySelector('.facet-label');
+          if (!label) return;
+          const value = (label.getAttribute('title') || label.textContent || '').trim();
+          const shouldBeSelected = wanted.has(value);
+          if (item.classList.contains('facet-selected') !== shouldBeSelected) item.click();
+        });
+      };
+
+      const scheduleDisplayModeSync = () => {
+        if (displayModeSyncTimer) return;
+        displayModeSyncTimer = window.setTimeout(() => {
+          displayModeSyncTimer = null;
+          syncDisplayModeFacet();
+        }, 50);
+      };
+
+      const clearLegacyDisplayModeQuery = () => {
+        const search = document.getElementById('searchbar-query');
+        if (!search) return;
+        const legacyQueries = new Set([
+          'level != "DEBUG" && level != "LOG"',
+          'data.level != "DEBUG" && data.level != "LOG"',
+          'data.level != "DEBUG" and data.level != "LOG"'
+        ]);
+        if (!legacyQueries.has(search.value.trim())) return;
+        search.value = '';
+        search.dispatchEvent(new Event('input', { bubbles: true }));
+        search.dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', bubbles: true }));
+      };
+
+      const applyDisplayMode = (select, modes, storageKey) => {
+        const selected = modes.find(mode => mode.id === select.value);
+        if (!selected) return;
+        activeDisplayMode = selected;
+        clearLegacyDisplayModeQuery();
+        scheduleDisplayModeSync();
+        select.title = selected.description || selected.label || selected.id;
+        try { localStorage.setItem(storageKey, selected.id); } catch (_) {}
+      };
+
+      const installDisplayModes = async () => {
+        if (displayModesLoaded || displayModesLoading) return;
+        const end = document.querySelector('.end');
+        const search = document.getElementById('searchbar-query');
+        if (!end || !search) return;
+        displayModesLoading = true;
+        try {
+          const response = await fetch(`${window.location.pathname}api/status`, { credentials: 'same-origin' });
+          if (!response.ok) return;
+          const status = await response.json();
+          const config = JSON.parse(status.configStr || '{}');
+          const definition = config.vfsUi && config.vfsUi.displayModes;
+          const modes = definition && Array.isArray(definition.options) ? definition.options : [];
+          if (!modes.length) return;
+          const storageKey = definition.storageKey || 'logdy-display-mode';
+          const available = new Set(modes.map(mode => mode.id));
+          let selected = definition.default || modes[0].id;
+          try {
+            const stored = localStorage.getItem(storageKey);
+            if (stored && available.has(stored)) selected = stored;
+          } catch (_) {}
+          if (!available.has(selected)) selected = modes[0].id;
+          const select = document.createElement('select');
+          select.id = 'vfs-display-mode';
+          select.setAttribute('aria-label', 'Režim výpisu logů');
+          modes.forEach(mode => {
+            const option = document.createElement('option');
+            option.value = mode.id;
+            option.textContent = mode.label || mode.id;
+            select.appendChild(option);
+          });
+          select.value = selected;
+          select.addEventListener('change', () => applyDisplayMode(select, modes, storageKey));
+          end.querySelectorAll('#vfs-display-mode').forEach(element => element.remove());
+          end.prepend(select);
+          displayModesLoaded = true;
+          applyDisplayMode(select, modes, storageKey);
+        } catch (error) {
+          console.warn('VFS display modes are unavailable:', error);
+        } finally {
+          displayModesLoading = false;
+        }
+      };
+
       const updateStreamState = () => {
+        installDisplayModes();
+        scheduleDisplayModeSync();
         const controls = document.querySelector('.ctrls');
         if (!controls) return;
         let state = document.getElementById('vfs-stream-state');
